@@ -1,0 +1,11 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+openpyxl>=3.1.0
+psycopg2-binary>=2.9.0
+matplotlib>=3.8.0
+pandas>=2.0.0
+python-dotenv>=1.0.0
+gigachat>=0.1.28
+# Anthropic — для тестирования пока нет токенов GigaChat:
+anthropic>=0.30.0

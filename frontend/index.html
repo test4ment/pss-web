@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>МЧС ПСС — Аналитическая система</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #07090f;
+  --surface:  #0d1420;
+  --panel:    #111a28;
+  --border:   #1c2d45;
+  --accent:   #e8312a;
+  --accent2:  #ff6b35;
+  --blue:     #1e6fa8;
+  --teal:     #0d9488;
+  --text:     #c8daea;
+  --muted:    #4a6580;
+  --mono:     'Share Tech Mono', monospace;
+  --display:  'Barlow Condensed', sans-serif;
+  --body:     'Barlow', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 999;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+}
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px;
+  height: 64px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 16px;
+}
+
+.logo-badge {
+  width: 40px; height: 40px;
+  background: var(--accent);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 11px; font-weight: bold; color: white;
+  flex-shrink: 0;
+  animation: pulse-badge 3s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%,100% { box-shadow: 0 0 0 0 rgba(232,49,42,.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(232,49,42,0); }
+}
+
+.logo-text { font-family: var(--display); }
+.logo-text .title { font-size: 18px; font-weight: 700; letter-spacing: .08em; color: #fff; }
+.logo-text .sub   { font-size: 11px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+
+.header-status {
+  display: flex; align-items: center; gap: 24px;
+}
+
+.status-dot {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.status-dot::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 6px var(--teal);
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.clock { font-family: var(--mono); font-size: 13px; color: var(--text); }
+
+/* ── LAYOUT ─────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 1fr;
+  height: calc(100vh - 64px);
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────── */
+nav {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 0;
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto;
+}
+
+.nav-section {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--muted); letter-spacing: .15em;
+  text-transform: uppercase;
+  padding: 16px 20px 8px;
+}
+
+nav a {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px;
+  text-decoration: none;
+  font-family: var(--display); font-size: 14px; font-weight: 400;
+  color: var(--muted);
+  border-left: 3px solid transparent;
+  transition: all .15s;
+  cursor: pointer;
+}
+nav a:hover { color: var(--text); background: rgba(255,255,255,.03); }
+nav a.active {
+  color: #fff;
+  border-left-color: var(--accent);
+  background: rgba(232,49,42,.08);
+}
+nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+
+/* ── MAIN ────────────────────────────────────────────────────────── */
+main {
+  overflow-y: auto;
+  padding: 28px 32px;
+  display: flex; flex-direction: column; gap: 24px;
+}
+
+/* ── PAGES ───────────────────────────────────────────────────────── */
+.page { display: none; flex-direction: column; gap: 24px; }
+.page.active { display: flex; }
+
+/* ── CARDS & PANELS ─────────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-title {
+  font-family: var(--display); font-size: 13px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text);
+}
+.panel-body { padding: 20px; }
+
+/* ── KPI GRID ────────────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.kpi {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  animation: fadein .4s ease both;
+}
+.kpi::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--accent);
+}
+.kpi.blue::before  { background: var(--blue); }
+.kpi.teal::before  { background: var(--teal); }
+.kpi.orange::before{ background: var(--accent2); }
+
+.kpi-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px; }
+.kpi-value { font-family: var(--display); font-size: 36px; font-weight: 700; color: #fff; line-height: 1; }
+.kpi-unit  { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+@keyframes fadein { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* ── PAGE TITLE ─────────────────────────────────────────────────── */
+.page-title {
+  font-family: var(--display); font-size: 28px; font-weight: 700;
+  letter-spacing: .04em; color: #fff;
+  display: flex; align-items: center; gap: 14px;
+}
+.page-title::before {
+  content: '//'; font-family: var(--mono); font-size: 16px;
+  color: var(--accent); font-weight: 400;
+}
+
+/* ── UPLOAD ZONE ─────────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 2px;
+  padding: 48px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(232,49,42,.05);
+}
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-icon { font-size: 40px; margin-bottom: 12px; color: var(--muted); }
+.upload-text { font-family: var(--display); font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.upload-hint { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* ── PROGRESS ────────────────────────────────────────────────────── */
+.progress-bar {
+  height: 3px; background: var(--border); border-radius: 2px;
+  overflow: hidden; margin-top: 16px; display: none;
+}
+.progress-fill {
+  height: 100%; background: var(--accent); border-radius: 2px;
+  width: 0; transition: width .3s ease;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* ── UPLOAD RESULT ───────────────────────────────────────────────── */
+.upload-result {
+  display: none;
+  background: rgba(13,148,136,.1);
+  border: 1px solid var(--teal);
+  border-radius: 2px;
+  padding: 16px 20px;
+  font-family: var(--mono); font-size: 12px; color: var(--text);
+  gap: 8px; flex-direction: column;
+}
+.upload-result.show { display: flex; }
+.upload-result .line { display: flex; gap: 8px; }
+.upload-result .key  { color: var(--muted); }
+.upload-result .val  { color: var(--teal); }
+
+/* ── TABLE ───────────────────────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 10px 12px; text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.data-table td {
+  padding: 10px 12px; font-size: 13px;
+  border-bottom: 1px solid rgba(28,45,69,.5);
+  vertical-align: top;
+}
+.data-table tr:hover td { background: rgba(255,255,255,.02); }
+.data-table .id-cell {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.badge {
+  display: inline-block; padding: 2px 8px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.badge-fire    { color: var(--accent);  border-color: rgba(232,49,42,.4);  background: rgba(232,49,42,.08); }
+.badge-dtp     { color: var(--accent2); border-color: rgba(255,107,53,.4); background: rgba(255,107,53,.08); }
+.badge-alarm   { color: var(--muted);   border-color: var(--border);        background: transparent; }
+.badge-pss     { color: var(--teal);    border-color: rgba(13,148,136,.4); background: rgba(13,148,136,.08); }
+.badge-other   { color: var(--blue);    border-color: rgba(30,111,168,.4); background: rgba(30,111,168,.08); }
+
+/* ── SEARCH BAR ─────────────────────────────────────────────────── */
+.search-bar {
+  display: flex; gap: 10px; align-items: center;
+}
+.search-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 2px; padding: 9px 14px;
+  font-family: var(--mono); font-size: 13px; color: var(--text);
+  outline: none; transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--muted); }
+
+/* ── BUTTONS ─────────────────────────────────────────────────────── */
+.btn {
+  padding: 9px 20px; border: none; border-radius: 2px; cursor: pointer;
+  font-family: var(--display); font-size: 13px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; transition: all .15s;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+}
+.btn-primary:hover { background: #c72520; }
+.btn-ghost {
+  background: transparent; color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--text); }
+
+/* ── CHART GRID ─────────────────────────────────────────────────── */
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart-full { grid-column: 1/-1; }
+
+.chart-box {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+.chart-box .panel-header { cursor: pointer; }
+.chart-box .panel-header:hover .panel-title { color: #fff; }
+.chart-img {
+  width: 100%; display: block;
+  opacity: 0; transition: opacity .3s;
+}
+.chart-img.loaded { opacity: 1; }
+.chart-loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 80px; color: var(--muted); font-family: var(--mono); font-size: 12px;
+}
+
+/* ── CHAT ────────────────────────────────────────────────────────── */
+.chat-layout {
+  display: grid; grid-template-rows: 1fr auto;
+  height: calc(100vh - 64px - 120px);
+  min-height: 400px;
+}
+.chat-messages {
+  overflow-y: auto; padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+  scroll-behavior: smooth;
+}
+.msg {
+  display: flex; gap: 12px; animation: fadein .25s ease both;
+}
+.msg.user { flex-direction: row-reverse; }
+.msg-avatar {
+  width: 32px; height: 32px; border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; flex-shrink: 0;
+}
+.msg.user .msg-avatar  { background: var(--accent); color: #fff; }
+.msg.bot  .msg-avatar  { background: var(--surface); color: var(--teal); border: 1px solid var(--border); }
+.msg-bubble {
+  max-width: 70%; padding: 12px 16px; border-radius: 2px;
+  font-size: 13px; line-height: 1.65;
+}
+.msg.user .msg-bubble { background: rgba(232,49,42,.12); border: 1px solid rgba(232,49,42,.25); }
+.msg.bot  .msg-bubble { background: var(--surface); border: 1px solid var(--border); }
+.msg-bubble pre { font-family: var(--mono); font-size: 11px; white-space: pre-wrap; }
+
+.chat-input-row {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 10px;
+  background: var(--panel);
+}
+.chat-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 2px; padding: 10px 14px;
+  font-family: var(--body); font-size: 13px; color: var(--text);
+  outline: none; resize: none; height: 42px;
+  transition: border-color .15s;
+}
+.chat-input:focus { border-color: var(--accent); }
+.chat-input::placeholder { color: var(--muted); }
+
+/* Typing indicator */
+.typing { display: flex; align-items: center; gap: 4px; padding: 8px 0; }
+.typing span {
+  width: 6px; height: 6px; background: var(--muted); border-radius: 50%;
+  animation: bounce .9s ease-in-out infinite;
+}
+.typing span:nth-child(2) { animation-delay: .15s; }
+.typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+/* ── SUGGESTIONS ─────────────────────────────────────────────────── */
+.suggestions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 16px 20px 0;
+}
+.suggestion {
+  padding: 6px 14px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 2px; cursor: pointer;
+  transition: all .15s; background: transparent;
+}
+.suggestion:hover { color: var(--text); border-color: var(--blue); background: rgba(30,111,168,.08); }
+
+/* ── TOAST ───────────────────────────────────────────────────────── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 12px 20px; border-radius: 2px;
+  font-family: var(--mono); font-size: 12px;
+  animation: fadein .2s ease both;
+  max-width: 320px;
+}
+.toast-ok  { background: rgba(13,148,136,.15); border: 1px solid var(--teal); color: var(--teal); }
+.toast-err { background: rgba(232,49,42,.15);  border: 1px solid var(--accent); color: var(--accent); }
+
+/* ── SCROLLBAR ───────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── EMPTY STATE ─────────────────────────────────────────────────── */
+.empty {
+  text-align: center; padding: 60px 20px;
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; opacity: .4; }
+
+/* ── TYPE BARS ───────────────────────────────────────────────────── */
+.type-list { display: flex; flex-direction: column; gap: 10px; }
+.type-row { display: flex; flex-direction: column; gap: 4px; }
+.type-row-header { display: flex; justify-content: space-between; font-size: 12px; }
+.type-row-name { color: var(--text); font-family: var(--display); font-weight: 600; }
+.type-row-count { font-family: var(--mono); color: var(--muted); }
+.type-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.type-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .6s ease; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-badge">ПСС</div>
+    <div class="logo-text">
+      <div class="title">МЧС АНАЛИТИКА</div>
+      <div class="sub">Поисково-спасательная служба</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="status-dot" id="dbStatus">СИСТЕМА АКТИВНА</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div class="app">
+  <nav>
+    <div class="nav-section">Обзор</div>
+    <a class="active" data-page="dashboard" onclick="showPage('dashboard')">
+      <span class="icon">◈</span> Дашборд
+    </a>
+    <a data-page="upload" onclick="showPage('upload')">
+      <span class="icon">↑</span> Загрузка данных
+    </a>
+
+    <div class="nav-section">Данные</div>
+    <a data-page="departures" onclick="showPage('departures')">
+      <span class="icon">⊡</span> Журнал выездов
+    </a>
+    <a data-page="search" onclick="showPage('search')">
+      <span class="icon">⌕</span> Поиск
+    </a>
+
+    <div class="nav-section">Аналитика</div>
+    <a data-page="charts" onclick="showPage('charts')">
+      <span class="icon">▦</span> Графики
+    </a>
+    <a data-page="chat" onclick="showPage('chat')">
+      <span class="icon">◎</span> ИИ-аналитик
+    </a>
+  </nav>
+
+  <main>
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Дашборд</div>
+
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi">
+          <div class="kpi-label">Всего выездов ПСС</div>
+          <div class="kpi-value" id="kpiTotal">—</div>
+          <div class="kpi-unit">записей в базе</div>
+        </div>
+        <div class="kpi blue">
+          <div class="kpi-label">Ср. время реагирования</div>
+          <div class="kpi-value" id="kpiAvgTime">—</div>
+          <div class="kpi-unit">минут в пути</div>
+        </div>
+        <div class="kpi teal">
+          <div class="kpi-label">Период данных</div>
+          <div class="kpi-value" id="kpiPeriod">—</div>
+          <div class="kpi-unit" id="kpiPeriodSub">загрузите журнал</div>
+        </div>
+        <div class="kpi orange">
+          <div class="kpi-label">Пострадавших</div>
+          <div class="kpi-value" id="kpiVictims">—</div>
+          <div class="kpi-unit">за весь период</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Типы происшествий</span>
+          </div>
+          <div class="panel-body">
+            <div class="type-list" id="typeList">
+              <div class="empty"><div class="empty-icon">▤</div>Нет данных</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Топ районов</span>
+          </div>
+          <div class="panel-body">
+            <div class="type-list" id="districtList">
+              <div class="empty"><div class="empty-icon">▤</div>Нет данных</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ UPLOAD ══ -->
+    <div class="page" id="page-upload">
+      <div class="page-title">Загрузка данных</div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Журнал выездов (.xlsx)</span>
+        </div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:16px">
+          <div class="upload-zone" id="dropzone">
+            <input type="file" id="fileInput" accept=".xlsx,.xls">
+            <div class="upload-icon">⬆</div>
+            <div class="upload-text">Перетащите файл сюда или нажмите для выбора</div>
+            <div class="upload-hint">Поддерживается: .xlsx, .xls — журнал выездов МЧС</div>
+            <div class="progress-bar" id="progressBar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+          </div>
+
+          <div class="upload-result" id="uploadResult">
+            <div class="line"><span class="key">Файл:</span><span class="val" id="resFile">—</span></div>
+            <div class="line"><span class="key">Строк в файле:</span><span class="val" id="resTotal">—</span></div>
+            <div class="line"><span class="key">Записей ПСС:</span><span class="val" id="resPss">—</span></div>
+            <div class="line"><span class="key">Добавлено в БД:</span><span class="val" id="resAdded">—</span></div>
+            <div class="line"><span class="key">Дублей пропущено:</span><span class="val" id="resSkipped">—</span></div>
+          </div>
+
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8">
+            <div>// Скрипт Этапа 1 автоматически:</div>
+            <div>//  1. Найдёт все записи с упоминанием ПСС</div>
+            <div>//  2. Структурирует текст описания через GigaChat</div>
+            <div>//  3. Сохранит в PostgreSQL без дублей</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DEPARTURES ══ -->
+    <div class="page" id="page-departures">
+      <div class="page-title">Журнал выездов ПСС</div>
+      <div class="panel">
+        <div class="panel-header" style="gap:12px">
+          <span class="panel-title">Все записи</span>
+          <div style="display:flex;gap:8px">
+            <input class="search-input" id="depDistrict" placeholder="Район..." style="width:150px" oninput="filterDepartures()">
+            <input class="search-input" id="depType" placeholder="Тип..." style="width:150px" oninput="filterDepartures()">
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Дата</th><th>Тип</th><th>Адрес / Район</th>
+                <th>Выезд→Прибытие</th><th>Итого</th><th>Жертв</th><th>Подразделение</th>
+              </tr>
+            </thead>
+            <tbody id="depTableBody">
+              <tr><td colspan="8"><div class="empty"><div class="empty-icon">◎</div>Загрузите данные</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel-body" style="padding:12px 20px">
+          <button class="btn btn-ghost" onclick="loadMoreDepartures()">Загрузить ещё</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SEARCH ══ -->
+    <div class="page" id="page-search">
+      <div class="page-title">Поиск по базе</div>
+      <div class="panel">
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:16px">
+          <div class="search-bar">
+            <input class="search-input" id="searchInput" placeholder="Введите запрос: ДТП, ложная, Советский район..." onkeydown="if(event.key==='Enter')doSearch()">
+            <button class="btn btn-primary" onclick="doSearch()">ПОИСК</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr><th>ID</th><th>Дата</th><th>Тип</th><th>Адрес</th><th>Результат</th></tr>
+            </thead>
+            <tbody id="searchResults">
+              <tr><td colspan="5"><div class="empty"><div class="empty-icon">⌕</div>Введите запрос для поиска</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CHARTS ══ -->
+    <div class="page" id="page-charts">
+      <div class="page-title">Визуализация</div>
+      <div class="chart-grid">
+        <div class="chart-box chart-full">
+          <div class="panel-header" onclick="loadChart('timeline')">
+            <span class="panel-title">📅 Динамика выездов по датам</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">обновить ↻</span>
+          </div>
+          <div id="chart-timeline-wrap">
+            <div class="chart-loading">// нажмите для загрузки графика</div>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="panel-header" onclick="loadChart('types')">
+            <span class="panel-title">📊 Типы происшествий</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">обновить ↻</span>
+          </div>
+          <div id="chart-types-wrap">
+            <div class="chart-loading">// нажмите для загрузки</div>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="panel-header" onclick="loadChart('districts')">
+            <span class="panel-title">🗺 По районам</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">обновить ↻</span>
+          </div>
+          <div id="chart-districts-wrap">
+            <div class="chart-loading">// нажмите для загрузки</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CHAT ══ -->
+    <div class="page" id="page-chat">
+      <div class="page-title">ИИ-аналитик</div>
+      <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="panel-header">
+          <span class="panel-title">GigaChat — аналитика на естественном языке</span>
+          <button class="btn btn-ghost" onclick="clearChat()" style="padding:5px 12px;font-size:11px">ОЧИСТИТЬ</button>
+        </div>
+        <div class="suggestions">
+          <button class="suggestion" onclick="sendSuggestion(this.textContent)">Сколько выездов на ДТП было?</button>
+          <button class="suggestion" onclick="sendSuggestion(this.textContent)">Среднее время прибытия ПСС?</button>
+          <button class="suggestion" onclick="sendSuggestion(this.textContent)">В каком районе больше всего выездов?</button>
+          <button class="suggestion" onclick="sendSuggestion(this.textContent)">Сформируй краткий отчёт</button>
+          <button class="suggestion" onclick="sendSuggestion(this.textContent)">Сколько пострадавших за весь период?</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg bot">
+            <div class="msg-avatar">ИИ</div>
+            <div class="msg-bubble">
+              Здравствуйте. Я аналитический ассистент ПСС на базе GigaChat.<br><br>
+              Задавайте любые вопросы по журналам выездов: количество инцидентов, статистика по районам, среднее время реагирования, анализ по периодам и многое другое.<br><br>
+              Для начала загрузите Excel-файл журнала в разделе <strong>Загрузка данных</strong>.
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-row">
+          <textarea class="chat-input" id="chatInput" placeholder="Введите вопрос..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"></textarea>
+          <button class="btn btn-primary" onclick="sendMessage()">ОТПРАВИТЬ</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const API = '';  // пустая строка = тот же хост
+
+// ── Часы ──────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('ru-RU');
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── Навигация ─────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelector(`[data-page="${name}"]`).classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'departures') { depOffset = 0; loadDepartures(true); }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── API хелпер ────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({detail: r.statusText}));
+    throw new Error(err.detail || r.statusText);
+  }
+  return r.json();
+}
+
+// ── Дашборд ───────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const s = await api('/api/stats');
+    document.getElementById('kpiTotal').textContent   = s.total || '0';
+    document.getElementById('kpiAvgTime').textContent = s.avg_travel_min || '—';
+    document.getElementById('kpiVictims').textContent = s.total_victims || '0';
+
+    if (s.date_min && s.date_max) {
+      const y1 = s.date_min.slice(0,4), y2 = s.date_max.slice(0,4);
+      document.getElementById('kpiPeriod').textContent   = y1 === y2 ? y1 : `${y1}–${y2}`;
+      document.getElementById('kpiPeriodSub').textContent = `${s.date_min} — ${s.date_max}`;
+    }
+
+    // Типы происшествий
+    const typeList = document.getElementById('typeList');
+    const types = Object.entries(s.by_type || {}).slice(0,8);
+    if (types.length) {
+      const max = types[0][1];
+      typeList.innerHTML = types.map(([name, count]) => `
+        <div class="type-row">
+          <div class="type-row-header">
+            <span class="type-row-name">${name || 'Не определён'}</span>
+            <span class="type-row-count">${count}</span>
+          </div>
+          <div class="type-bar-bg">
+            <div class="type-bar-fill" style="width:${Math.round(count/max*100)}%"></div>
+          </div>
+        </div>`).join('');
+    }
+
+    // Районы
+    const distList = document.getElementById('districtList');
+    const dists = Object.entries(s.by_district || {}).slice(0,8);
+    if (dists.length) {
+      const max = dists[0][1];
+      distList.innerHTML = dists.map(([name, count]) => `
+        <div class="type-row">
+          <div class="type-row-header">
+            <span class="type-row-name">${name || 'Не определён'}</span>
+            <span class="type-row-count">${count}</span>
+          </div>
+          <div class="type-bar-bg">
+            <div class="type-bar-fill" style="width:${Math.round(count/max*100)}%;background:var(--blue)"></div>
+          </div>
+        </div>`).join('');
+    }
+  } catch(e) {
+    console.error('Dashboard error:', e);
+  }
+}
+
+// ── Загрузка файла ────────────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) uploadFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+});
+
+async function uploadFile(file) {
+  const pb = document.getElementById('progressBar');
+  const pf = document.getElementById('progressFill');
+  pb.style.display = 'block';
+
+  // Анимируем прогресс (реального прогресса нет, делаем имитацию)
+  let prog = 0;
+  const interval = setInterval(() => {
+    prog = Math.min(prog + Math.random() * 15, 90);
+    pf.style.width = prog + '%';
+  }, 300);
+
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    clearInterval(interval);
+    pf.style.width = '100%';
+
+    if (!res.ok) {
+      const err = await res.json();
+      toast('Ошибка: ' + err.detail, 'err');
+      return;
+    }
+    const data = await res.json();
+    document.getElementById('resFile').textContent    = data.filename;
+    document.getElementById('resTotal').textContent   = data.total;
+    document.getElementById('resPss').textContent     = data.pss_count;
+    document.getElementById('resAdded').textContent   = data.added;
+    document.getElementById('resSkipped').textContent = data.skipped;
+    document.getElementById('uploadResult').classList.add('show');
+    toast(`Загружено: +${data.added} записей ПСС`, 'ok');
+    setTimeout(() => { pb.style.display = 'none'; pf.style.width = '0'; }, 1000);
+  } catch(e) {
+    clearInterval(interval);
+    toast('Ошибка загрузки: ' + e.message, 'err');
+    pb.style.display = 'none';
+  }
+}
+
+// ── Журнал выездов ────────────────────────────────────────────────
+let depOffset = 0;
+
+function badgeType(t) {
+  if (!t) return `<span class="badge badge-other">—</span>`;
+  if (t.includes('Пожар'))              return `<span class="badge badge-fire">${t}</span>`;
+  if (t.includes('ДТП'))                return `<span class="badge badge-dtp">${t}</span>`;
+  if (t.includes('Ложная'))             return `<span class="badge badge-alarm">${t}</span>`;
+  if (t.includes('спасат') || t.includes('ПСС')) return `<span class="badge badge-pss">${t}</span>`;
+  return `<span class="badge badge-other">${t}</span>`;
+}
+
+async function loadDepartures(reset = false) {
+  if (reset) depOffset = 0;
+  const dist = document.getElementById('depDistrict').value;
+  const type = document.getElementById('depType').value;
+  try {
+    const rows = await api(`/api/departures?limit=30&offset=${depOffset}&district=${encodeURIComponent(dist)}&incident_type=${encodeURIComponent(type)}`);
+    const tbody = document.getElementById('depTableBody');
+    if (reset) tbody.innerHTML = '';
+    if (!rows.length && reset) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-icon">◎</div>Нет данных</div></td></tr>';
+      return;
+    }
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const travel = r.duration_travel_min ? `${r.duration_travel_min} мин` : '—';
+      const total  = r.duration_total_min  ? `${r.duration_total_min} мин`  : '—';
+      tr.innerHTML = `
+        <td class="id-cell">${r.record_id}</td>
+        <td>${r.date || '—'}</td>
+        <td>${badgeType(r.incident_type)}</td>
+        <td><div style="font-size:12px">${r.address || '—'}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${r.district || ''}</div></td>
+        <td style="font-family:var(--mono);font-size:12px">${r.time_depart||'—'} → ${r.time_arrive||'—'}<br><span style="color:var(--muted)">${travel}</span></td>
+        <td style="font-family:var(--mono);font-size:12px">${total}</td>
+        <td style="text-align:center">${r.victims || 0}</td>
+        <td style="font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.pss_unit || '—'}</td>`;
+      tbody.appendChild(tr);
+    });
+    depOffset += rows.length;
+  } catch(e) {
+    toast('Ошибка загрузки таблицы: ' + e.message, 'err');
+  }
+}
+
+function filterDepartures() { clearTimeout(window._depTimer); window._depTimer = setTimeout(() => loadDepartures(true), 400); }
+function loadMoreDepartures() { loadDepartures(false); }
+
+// ── Поиск ─────────────────────────────────────────────────────────
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  const tbody = document.getElementById('searchResults');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;font-family:var(--mono);font-size:12px;color:var(--muted)">// поиск...</td></tr>';
+  try {
+    const rows = await api(`/api/search?q=${encodeURIComponent(q)}&limit=20`);
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">⌕</div>Ничего не найдено по запросу «${q}»</div></td></tr>`; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td class="id-cell">${r.record_id}</td>
+        <td>${r.date||'—'}</td>
+        <td>${badgeType(r.incident_type)}</td>
+        <td style="font-size:12px">${r.address||'—'}<br><span style="color:var(--muted)">${r.district||''}</span></td>
+        <td style="font-size:12px;max-width:240px">${r.result||r.description_raw?.slice(0,120)||'—'}</td>
+      </tr>`).join('');
+  } catch(e) { toast('Ошибка поиска: '+e.message, 'err'); }
+}
+
+// ── Графики ───────────────────────────────────────────────────────
+async function loadChart(type) {
+  const wrap = document.getElementById(`chart-${type}-wrap`);
+  wrap.innerHTML = '<div class="chart-loading">// загрузка...</div>';
+  try {
+    const res = await fetch(`/api/chart/${type}`);
+    if (!res.ok) throw new Error('Нет данных');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const img  = document.createElement('img');
+    img.className = 'chart-img';
+    img.src = url;
+    img.onload = () => img.classList.add('loaded');
+    wrap.innerHTML = '';
+    wrap.appendChild(img);
+  } catch(e) {
+    wrap.innerHTML = `<div class="chart-loading">// нет данных — загрузите журнал</div>`;
+  }
+}
+
+// ── Чат ───────────────────────────────────────────────────────────
+const SESSION_ID = 'session_' + Math.random().toString(36).slice(2);
+
+function appendMsg(role, content) {
+  const msgs = document.getElementById('chatMessages');
+  const div  = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="msg-avatar">${role === 'user' ? 'ВЫ' : 'ИИ'}</div>
+    <div class="msg-bubble">${content.replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const msg   = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  appendMsg('user', msg);
+
+  // Печатающий индикатор
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'msg bot';
+  typingDiv.innerHTML = `<div class="msg-avatar">ИИ</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  document.getElementById('chatMessages').appendChild(typingDiv);
+  document.getElementById('chatMessages').scrollTop = 9999;
+
+  try {
+    const data = await api('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: msg, session_id: SESSION_ID }),
+    });
+    typingDiv.remove();
+    appendMsg('bot', data.reply);
+  } catch(e) {
+    typingDiv.remove();
+    appendMsg('bot', `Ошибка: ${e.message}`);
+  }
+}
+
+function sendSuggestion(text) {
+  document.getElementById('chatInput').value = text;
+  sendMessage();
+}
+
+async function clearChat() {
+  await api(`/api/chat/${SESSION_ID}`, { method: 'DELETE' }).catch(()=>{});
+  document.getElementById('chatMessages').innerHTML = `
+    <div class="msg bot">
+      <div class="msg-avatar">ИИ</div>
+      <div class="msg-bubble">История очищена. Задайте новый вопрос.</div>
+    </div>`;
+  toast('История диалога очищена', 'ok');
+}
+
+// ── Инициализация ─────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>
