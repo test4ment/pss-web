@@ -111,6 +111,10 @@ class PostgresStorage(BaseStorage):
             [f"%{query}%", limit]
         )
         return [dict(r) for r in rows]
+    
+    def query_departures(self, sql: str, params: list | None = None) -> list[dict]:
+        rows = self._query(sql, params or [])
+        return [dict(r) for r in rows]   
 
     def stats(self) -> dict:
         rows = self._query("SELECT * FROM pss_departures")
