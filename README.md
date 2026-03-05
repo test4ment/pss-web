@@ -49,6 +49,11 @@ CREATE DATABASE pss_db;
 AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 ```
+Проблема сертификата решается командой:
+```bash
+curl.exe -k "https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt" | Out-File -Append -Encoding ascii (python -m certifi)
+```
+
 
 ### 3. Настроить .env
 ```

@@ -39,8 +39,8 @@ def _compute_stats(rows: list) -> dict:
 
 
 # Patch _compute_stats into both backends (avoids circular imports)
-import db.postgres as _pg
-import db.memory   as _mem
+from . import postgres as _pg
+from . import memory   as _mem
 _pg._compute_stats  = _compute_stats
 _mem._compute_stats = _compute_stats
 
