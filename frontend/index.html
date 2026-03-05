@@ -23,6 +23,63 @@
   --body:     'Barlow', sans-serif;
 }
 
+/* СВЕТЛАЯ ТЕМА */
+html.light {
+  --bg:      #f0f3f7;
+  --surface: #ffffff;
+  --panel:   #f8fafc;
+  --border:  #dde4ee;
+  --accent:  #c9261f;
+  --accent2: #e85d20;
+  --blue:    #1a5f96;
+  --teal:    #0b7a70;
+  --text:    #1e2d3d;
+  --muted:   #7a90a8;
+}
+html.light body::before { display: none; }
+html.light .logo-text .title { color: #1e2d3d; }
+html.light .data-table th { background: #edf1f7; }
+html.light .msg.bot .msg-bubble { background: #edf1f7; }
+html.light .chat-input-row { background: #f0f3f7; }
+html.light .upload-zone { border-color: #c5cfe0; }
+html.light .kpi { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+html.light .panel { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+
+/* ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ */
+.theme-toggle {
+  display: flex; align-items: center; gap: 9px; cursor: pointer;
+  padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--border);
+  transition: border-color .2s, background .2s;
+}
+.theme-toggle:hover { border-color: var(--muted); background: rgba(255,255,255,.04); }
+html.light .theme-toggle:hover { background: rgba(0,0,0,.04); }
+
+.theme-track {
+  width: 36px; height: 20px;
+  background: var(--border);
+  border-radius: 10px; position: relative;
+  transition: background .3s; flex-shrink: 0;
+  pointer-events: none;
+}
+.theme-track::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--muted);
+  transition: transform .3s, background .3s;
+}
+html.light .theme-track { background: #b8ccdf; }
+html.light .theme-track::after { transform: translateX(16px); background: var(--accent); }
+
+.theme-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  letter-spacing: .1em; user-select: none;
+  min-width: 52px;
+  transition: color .2s;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -444,6 +501,11 @@ main {
     </div>
   </div>
   <div class="header-status">
+    <div class="theme-toggle" onclick="toggleTheme()" title="Переключить тему">
+      <span id="themeEmoji" style="font-size:14px">☀️</span>
+      <div class="theme-track"></div>
+      <span class="theme-label" id="themeLabel">СВЕТЛАЯ</span>
+    </div>
     <div class="status-dot" id="dbStatus">СИСТЕМА АКТИВНА</div>
     <div class="clock" id="clock">--:--:--</div>
   </div>
@@ -978,6 +1040,23 @@ async function clearChat() {
       <div class="msg-bubble">История очищена. Задайте новый вопрос.</div>
     </div>`;
   toast('История диалога очищена', 'ok');
+}
+
+// ТЕМА
+function toggleTheme() {
+  var light = document.documentElement.classList.toggle('light');
+  document.getElementById('themeEmoji').textContent  = light ? '🌙' : '☀️';
+  document.getElementById('themeLabel').textContent  = light ? 'ТЁМНАЯ' : 'СВЕТЛАЯ';
+  localStorage.setItem('pss_theme', light ? 'light' : 'dark');
+}
+if (localStorage.getItem('pss_theme') === 'light') {
+  document.documentElement.classList.add('light');
+  document.addEventListener('DOMContentLoaded', function() {
+    var e = document.getElementById('themeEmoji');
+    var l = document.getElementById('themeLabel');
+    if (e) e.textContent = '🌙';
+    if (l) l.textContent = 'ТЁМНАЯ';
+  });
 }
 
 // ── Инициализация ─────────────────────────────────────────────────
