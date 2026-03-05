@@ -11,10 +11,10 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from ai_client import get_ai
-from charts    import chart_types, chart_districts, chart_timeline
-from db        import get_storage
-from parser    import parse_excel_departures
+from .ai_client import get_ai
+from .charts    import chart_types, chart_districts, chart_timeline
+from .db        import get_storage
+from .parser    import parse_excel_departures
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -38,13 +38,13 @@ SYSTEM_PROMPT = """\
 
 @app.on_event("startup")
 async def startup():
+    global storage
     try:
         storage.init()
         log.info("Storage initialised")
     except Exception as e:
         log.error("Storage init error: %s — falling back to MemoryStorage", e)
-        from db import MemoryStorage
-        global storage
+        from .db import MemoryStorage
         storage = MemoryStorage()
         storage.init()
 
@@ -181,8 +181,12 @@ async def get_chart(chart_type: str):
 
 
 # Serve frontend
-app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent.parent   # .../pss-web
+FRONTEND_DIR = BASE_DIR / "frontend"
+
+app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn

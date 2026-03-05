@@ -11,7 +11,7 @@ from datetime import datetime, time as dtime
 
 import openpyxl
 
-from ai_client import AIClient, PROMPT_DEP, parse_ai_json
+from .ai_client import AIClient, PROMPT_DEP, parse_ai_json
 
 log = logging.getLogger(__name__)
 

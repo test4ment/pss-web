@@ -2,7 +2,7 @@
 
 import io
 import logging
-
+import math
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -50,7 +50,7 @@ def chart_types(storage) -> io.BytesIO | None:
     try:
         import pandas as pd
         df = pd.DataFrame(rows)
-        fig, ax = _fig(10, max(4, len(df) * 0.55))
+        fig, ax = _fig(10, max(4, math.ceil(len(df) * 0.55)))
         y = range(len(df))
         other = df["total"].astype(int) - df["pss"].astype(int)
         ax.barh(list(y), other, color=BLUE, label="Другие")
