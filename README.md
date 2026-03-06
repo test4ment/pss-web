@@ -15,14 +15,33 @@
 ## Структура
 
 ```
-pss_web/
-├── backend/
-│   └── main.py          ← FastAPI: API + парсер + ИИ-чат
-├── frontend/
-│   └── index.html       ← весь фронтенд в одном файле
+├── .env
+├── .env.example
+├── .gitignore
+├── backend
+│   ├── __init__.py
+│   ├── ai_client.py
+│   ├── charts.py
+│   ├── config.py
+│   ├── db
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── memory.py
+│   │   └── postgres.py
+│   ├── main.py
+│   └── parser.py
+├── dev.bat
+├── frontend
+│   └── index.html
+├── install.bat
+├── logs.bat
+├── README.md
 ├── requirements.txt
-├── .env.example         ← скопируйте в .env
-└── start.bat            ← запуск одной командой (Windows)
+├── restart.bat
+├── start.bat
+├── stop.bat
+├── tree.txt
+└── WINDOWS_DEPLOY.md
 ```
 
 ## Быстрый старт (Windows)
@@ -39,8 +58,9 @@ CREATE DATABASE pss_db;
 ### 2. Получить токены GigaChat
 1. Зайти на https://developers.sber.ru/studio
 2. Создать проект → подключить GigaChat API
-3. Получить Client ID и Client Secret
-4. Закодировать в Base64: `ClientID:ClientSecret`
+3. Получить Authorization key:строка 100 символов из a-z, A-Z, 0-9(сразу представлен в формате Base64) 
+   
+Либо 3.1 Закодировать в Base64: `ClientID:ClientSecret`
    - Онлайн: https://www.base64encode.org/
    - PowerShell: `[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("ID:Secret"))`
 
